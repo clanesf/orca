@@ -49,6 +49,10 @@ class CreateBakeTaskSpec extends Specification {
   Stage bakeStage
   def mapper = OrcaObjectMapper.newInstance()
 
+  ArtifactResolver artifactResolver = Stub() {
+    getAllArtifacts(_) >> []
+  }
+
   @Shared
   def runningStatus = new BakeStatus(id: randomUUID(), state: RUNNING)
 
@@ -99,6 +103,16 @@ class CreateBakeTaskSpec extends Specification {
     user     : "bran",
     baseOs   : "ubuntu",
     baseLabel: "release"
+  ]
+
+  @Shared
+  def bakeConfigWithoutOs = [
+    region           : "us-west-1",
+    packageArtifactIds : ["abc", "def"],
+    package          : "hodor",
+    user             : "bran",
+    cloudProviderType: "aws",
+    baseLabel        : "release",
   ]
 
   @Shared
@@ -195,6 +209,7 @@ class CreateBakeTaskSpec extends Specification {
 
   def setup() {
     task.mapper = mapper
+    task.artifactResolver = artifactResolver
     bakeStage = pipeline.stages.first()
   }
 
@@ -339,7 +354,7 @@ class CreateBakeTaskSpec extends Specification {
 
     then:
     IllegalStateException ise = thrown(IllegalStateException)
-    ise.message.startsWith("Found build artifact in Jenkins")
+    ise.message.startsWith("Found build artifact in both Jenkins")
   }
 
   def "outputs the status of the bake"() {
@@ -810,6 +825,7 @@ class CreateBakeTaskSpec extends Specification {
 
     then:
     2 * task.artifactResolver.getBoundArtifactForId(stage, _) >> new Artifact()
+    1 * task.artifactResolver.getAllArtifacts(_) >> []
     bakeResult.getPackageArtifacts().size() == 2
   }
 
@@ -827,6 +843,26 @@ class CreateBakeTaskSpec extends Specification {
 
     then:
     0 * task.artifactResolver.getBoundArtifactForId(*_) >> new Artifact()
+    1 * task.artifactResolver.getAllArtifacts(_) >> []
     bakeResult.getPackageArtifacts().size() == 0
+  }
+
+  def "handles null baseOs field"() {
+    given:
+    def stage = stage {
+      type = "bake"
+      context = bakeConfigWithoutOs
+    }
+    task.artifactResolver = Mock(ArtifactResolver)
+    task.bakery = Mock(BakeryService)
+
+    when:
+    def bakeResult = task.bakeFromContext(stage)
+
+    then:
+    noExceptionThrown()
+    2 * task.artifactResolver.getBoundArtifactForId(stage, _) >> new Artifact()
+    1 * task.artifactResolver.getAllArtifacts(_) >> []
+    bakeResult.getPackageArtifacts().size() == 2
   }
 }

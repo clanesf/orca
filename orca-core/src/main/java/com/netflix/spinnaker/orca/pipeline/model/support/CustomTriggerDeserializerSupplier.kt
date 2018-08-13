@@ -13,14 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.orca.notifications.scheduling
+package com.netflix.spinnaker.orca.pipeline.model.support
 
-import com.netflix.spinnaker.orca.pipeline.model.Execution.ExecutionType
-import com.netflix.spinnaker.orca.pipeline.persistence.ExecutionRepository
+import com.fasterxml.jackson.databind.JsonNode
+import com.netflix.spinnaker.orca.pipeline.model.Trigger
 
-interface PollingAgentExecutionRepository : ExecutionRepository {
-
-  fun retrieveAllApplicationNames(type: ExecutionType?): List<String>
-  fun retrieveAllApplicationNames(type: ExecutionType?, minExecutions: Int): List<String>
-  fun hasEntityTags(type: ExecutionType, id: String): Boolean
+/**
+ * Provides a [predicate] & [deserializer] pair for custom trigger types.
+ *
+ * The [predicate] will return true if the [deserializer] should be used
+ * for the provided JsonNode. If more than one [predicate] returns true,
+ * the first supplier will be chosen.
+ */
+interface CustomTriggerDeserializerSupplier {
+  val predicate: (node: JsonNode) -> Boolean
+  val deserializer: (node: JsonNode) -> Trigger
 }
